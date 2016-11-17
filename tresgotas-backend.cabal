@@ -3,7 +3,7 @@ version:             0.1.0.0
 synopsis:            tresgotas backend
 description:         Please see README.md
 homepage:            https://bitbucket.org/codifilo/tresgotas-backend
-license:             Propietary
+license:             AllRightsReserved
 license-file:        LICENSE
 author:              Agustin Prats
 maintainer:          aprats@gmail.com
@@ -15,8 +15,8 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Lib
-                     , Location
+  exposed-modules:     ImgLocation
+                     , ElTiempoEs
   build-depends:       base >= 4.7 && < 5
   default-language:    Haskell2010
 
@@ -44,4 +44,4 @@ test-suite tresgotas-test
 
 source-repository head
   type:     git
-  location: https://bitbucket.org/codifilo/tresgotas-backend
+  ImgLocation: https://bitbucket.org/codifilo/tresgotas-backend

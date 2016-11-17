@@ -1,11 +1,14 @@
-module Location where
+module ImgLocation ( Coord (..)
+                   , ImgBounds (..)
+                   , Pixel
+                   , locateIn) where
 
-data Coordinates = Coordinates {
+data Coord = Coord {
     latitude  :: Double
   , longitude :: Double
 } deriving (Eq, Ord, Show, Read)
 
-data MapImage = MapImage {
+data ImgBounds = ImgBounds {
     north  :: Double
   , south  :: Double
   , west   :: Double
@@ -22,30 +25,21 @@ data Pixel = Pixel {
 toRadians :: Double -> Double
 toRadians d = d * (pi / 180)
 
-toDegrees :: Double -> Double
-toDegrees r = r * (180 / pi)
-
 latitudeToY :: Double -> Double
 latitudeToY lat = log $ tan (lat / 2 + pi / 4)
 
-mapImage :: MapImage
-mapImage = MapImage {
-    north  = toRadians 44.165484
-  , south  = toRadians 35.101074
-  , west   = toRadians (-9.981277)
-  , east   = toRadians 4.991540
-  , width  = 680
-  , height = 537
-}
-
-locateInMap :: MapImage -> Coordinates -> Pixel
-locateInMap img coord =
+locateIn :: ImgBounds -> Coord -> Pixel
+locateIn img coord =
   let lat = toRadians (latitude coord)
       lon = toRadians (longitude coord)
-      yMin = latitudeToY (south img)
-      yMax = latitudeToY (north img)
-      xFactor = fromIntegral (width img) / (east img - west img)
+      n = toRadians (north img)
+      s = toRadians (south img)
+      w = toRadians (west img)
+      e = toRadians (east img)
+      yMin = latitudeToY s
+      yMax = latitudeToY n
+      xFactor = fromIntegral (width img) / (e - w)
       yFactor = fromIntegral (height img) / (yMax - yMin)
-      x = (lon - west img) * xFactor
+      x = (lon - w) * xFactor
       y = (yMax - latitudeToY lat) * yFactor in
       Pixel (round x) (round y)
