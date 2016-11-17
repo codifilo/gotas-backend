@@ -1,8 +1,8 @@
-name:                gotas-backend
+name:                tresgotas-backend
 version:             0.1.0.0
-synopsis:            Gotas backend
+synopsis:            tresgotas backend
 description:         Please see README.md
-homepage:            https://bitbucket.org/codifilo/gotas-backend
+homepage:            https://bitbucket.org/codifilo/tresgotas-backend
 license:             Propietary
 license-file:        LICENSE
 author:              Agustin Prats
@@ -19,15 +19,15 @@ library
   build-depends:       base >= 4.7 && < 5
   default-language:    Haskell2010
 
-executable gotas
+executable tresgotas
   hs-source-dirs:      app
   main-is:             Main.hs
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base
-                     , gotas-backend
+                     , tresgotas-backend
   default-language:    Haskell2010
 
-test-suite gotas-test
+test-suite tresgotas-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Spec.hs
@@ -37,10 +37,10 @@ test-suite gotas-test
                       , test-framework-quickcheck2
                       , HUnit
                       , QuickCheck
-                      , gotas-backend
+                      , tresgotas-backend
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   default-language:    Haskell2010
 
 source-repository head
   type:     git
-  location: https://bitbucket.org/codifilo/gotas-backend
+  location: https://bitbucket.org/codifilo/tresgotas-backend
