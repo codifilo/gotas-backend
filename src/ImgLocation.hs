@@ -1,6 +1,6 @@
 module ImgLocation ( Coord (..)
                    , ImgBounds (..)
-                   , Pixel
+                   , Pixel (..)
                    , locateIn) where
 
 data Coord = Coord {

@@ -5,15 +5,18 @@ import Test.Framework.Providers.QuickCheck2
 import Test.HUnit
 import Test.QuickCheck
 
+import ImgLocation
+import ElTiempoEs
+
 main :: IO ()
 main = defaultMainWithOpts
-       [ testCase "test1" test1
+       [ testCase "testLocateInRadar" testLocateInRadar
        , testProperty "test2" test2
        ] mempty
 
 
-test1 :: Assertion
-test1 = sum [1, 2, 3, 4] @?= 10
-
 test2 :: [Integer] -> Bool
 test2 xs = xs == (reverse . reverse) xs
+
+testLocateInRadar :: Assertion
+testLocateInRadar = locateIn radar (Coord 37.171700 (-7.381614)) @?= Pixel 118 420
