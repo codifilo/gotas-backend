@@ -1,9 +1,9 @@
-module ImgLocation ( Coord (..)
+module ImgLocation ( GpsCoord (..)
                    , ImgBounds (..)
-                   , Pixel (..)
+                   , ImgCoord (..)
                    , locateIn) where
 
-data Coord = Coord {
+data GpsCoord = GpsCoord {
     latitude  :: Double
   , longitude :: Double
 } deriving (Eq, Ord, Show, Read)
@@ -17,7 +17,7 @@ data ImgBounds = ImgBounds {
   , height :: Int
 } deriving (Eq, Ord, Show, Read)
 
-data Pixel = Pixel {
+data ImgCoord = ImgCoord {
     x :: Int
   , y :: Int
 } deriving (Eq, Ord, Show, Read)
@@ -28,7 +28,7 @@ toRadians d = d * (pi / 180)
 latitudeToY :: Double -> Double
 latitudeToY lat = log $ tan (lat / 2 + pi / 4)
 
-locateIn :: ImgBounds -> Coord -> Pixel
+locateIn :: ImgBounds -> GpsCoord -> ImgCoord
 locateIn img coord =
   let lat = toRadians (latitude coord)
       lon = toRadians (longitude coord)
@@ -42,4 +42,4 @@ locateIn img coord =
       yFactor = fromIntegral (height img) / (yMax - yMin)
       x = (lon - w) * xFactor
       y = (yMax - latitudeToY lat) * yFactor in
-      Pixel (round x) (round y)
+      ImgCoord (round x) (round y)

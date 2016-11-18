@@ -1,6 +1,7 @@
 module ElTiempoEs where
 
 import ImgLocation
+import Codec.Picture
 
 radar :: ImgBounds
 radar = ImgBounds {
