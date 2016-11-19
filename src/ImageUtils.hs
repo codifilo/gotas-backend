@@ -1,7 +1,11 @@
-module ImgLocation ( GpsCoord (..)
+module ImageUtils ( GpsCoord (..)
                    , ImgBounds (..)
                    , ImgCoord (..)
-                   , locateIn) where
+                   , locateIn
+                   , toRadians
+                   , readPixelFrom) where
+
+import Codec.Picture
 
 data GpsCoord = GpsCoord {
     latitude  :: Double
@@ -32,10 +36,10 @@ locateIn :: ImgBounds -> GpsCoord -> ImgCoord
 locateIn img coord =
   let lat = toRadians (latitude coord)
       lon = toRadians (longitude coord)
-      n = toRadians (north img)
-      s = toRadians (south img)
-      w = toRadians (west img)
-      e = toRadians (east img)
+      n = north img
+      s = south img
+      w = west img
+      e = east img
       yMin = latitudeToY s
       yMax = latitudeToY n
       xFactor = fromIntegral (width img) / (e - w)
@@ -43,3 +47,9 @@ locateIn img coord =
       x = (lon - w) * xFactor
       y = (yMax - latitudeToY lat) * yFactor in
       ImgCoord (round x) (round y)
+
+readPixelFrom :: FilePath -> ImgCoord -> IO (Either String PixelRGB8)
+readPixelFrom path (ImgCoord x y) = ((\ i -> pixelRGB8At i x y) <$>) <$> readImage path
+
+pixelRGB8At :: DynamicImage -> Int -> Int -> PixelRGB8
+pixelRGB8At img = pixelAt $ convertRGB8 img
