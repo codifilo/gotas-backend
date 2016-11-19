@@ -6,6 +6,7 @@ module ImageUtils ( GpsCoord (..)
                    , readPixelFrom) where
 
 import Codec.Picture
+import Data.Map as M
 
 data GpsCoord = GpsCoord {
     latitude  :: Double
@@ -36,15 +37,11 @@ locateIn :: ImgBounds -> GpsCoord -> ImgCoord
 locateIn img coord =
   let lat = toRadians (latitude coord)
       lon = toRadians (longitude coord)
-      n = north img
-      s = south img
-      w = west img
-      e = east img
-      yMin = latitudeToY s
-      yMax = latitudeToY n
-      xFactor = fromIntegral (width img) / (e - w)
+      yMin = latitudeToY $ south img
+      yMax = latitudeToY $ north img
+      xFactor = fromIntegral (width img) / (east img - west img)
       yFactor = fromIntegral (height img) / (yMax - yMin)
-      x = (lon - w) * xFactor
+      x = (lon - west img) * xFactor
       y = (yMax - latitudeToY lat) * yFactor in
       ImgCoord (round x) (round y)
 
