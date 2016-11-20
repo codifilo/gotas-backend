@@ -1,9 +1,8 @@
-module ImageUtils ( GpsCoord (..)
-                   , ImgBounds (..)
-                   , ImgCoord (..)
-                   , locateIn
-                   , toRadians
-                   , readPixelFrom) where
+module Provider (GpsCoord (..)
+                 , ImgBounds (..)
+                 , Provider (..)
+                 , toRadians
+                 , amountAt) where
 
 import Codec.Picture
 import Data.Map as M
@@ -27,6 +26,11 @@ data ImgCoord = ImgCoord {
   , y :: Int
 } deriving (Eq, Ord, Show, Read)
 
+data Provider = Provider {
+    imgBounds     :: ImgBounds
+  , pixelToAmount :: PixelRGB8 -> Float
+}
+
 toRadians :: Double -> Double
 toRadians d = d * (pi / 180)
 
@@ -45,8 +49,8 @@ locateIn img coord =
       y = (yMax - latitudeToY lat) * yFactor in
       ImgCoord (round x) (round y)
 
-readPixelFrom :: FilePath -> ImgCoord -> IO (Either String PixelRGB8)
-readPixelFrom path (ImgCoord x y) = ((\ i -> pixelRGB8At i x y) <$>) <$> readImage path
-
-pixelRGB8At :: DynamicImage -> Int -> Int -> PixelRGB8
-pixelRGB8At img = pixelAt $ convertRGB8 img
+amountAt :: Provider -> DynamicImage -> GpsCoord -> Float
+amountAt prov img gpsCoord =
+  let (ImgCoord x y) = locateIn (imgBounds prov) gpsCoord
+      pixel = pixelAt (convertRGB8 img) x y in
+      pixelToAmount prov pixel

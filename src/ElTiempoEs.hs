@@ -1,10 +1,16 @@
-module ElTiempoEs where
+module ElTiempoEs (elTiempoEs) where
 
-import ImageUtils
+import Provider
 import Codec.Picture
 import Data.Map as M
 import Data.List as L
 import Control.Arrow as A
+
+elTiempoEs :: Provider
+elTiempoEs = Provider {
+      imgBounds = radarBounds
+    , pixelToAmount = pixelToMmh
+  }
 
 radarBounds :: ImgBounds
 radarBounds = ImgBounds {
