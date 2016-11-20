@@ -6,6 +6,7 @@ module Provider (GpsCoord (..)
 
 import Codec.Picture
 import Data.Map as M
+import Data.Time.Clock.POSIX
 
 data GpsCoord = GpsCoord {
     latitude  :: Double
@@ -29,6 +30,7 @@ data ImgCoord = ImgCoord {
 data Provider = Provider {
     imgBounds     :: ImgBounds
   , pixelToAmount :: PixelRGB8 -> Float
+  , imgUrls       :: POSIXTime -> [String]
 }
 
 toRadians :: Double -> Double

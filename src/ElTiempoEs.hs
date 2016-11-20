@@ -5,11 +5,15 @@ import Codec.Picture
 import Data.Map as M
 import Data.List as L
 import Control.Arrow as A
+import Data.Time.Clock
+import Data.Time.Format
+import Data.Time.Clock.POSIX
 
 elTiempoEs :: Provider
 elTiempoEs = Provider {
       imgBounds = radarBounds
     , pixelToAmount = pixelToMmh
+    , imgUrls = radarImgUrls
   }
 
 radarBounds :: ImgBounds
@@ -22,6 +26,7 @@ radarBounds = ImgBounds {
   , height = 537
 }
 
+-- transforms a pixel to precipitaion in mm/h
 pixelToMmh :: PixelRGB8 -> Float
 pixelToMmh p@(PixelRGB8 r g b) =
     if r == g && g == b
@@ -84,3 +89,18 @@ mixedLegend = [
     , (PixelRGB8 175   0  25,  49.0 )
     , (PixelRGB8 150   0   0, 100.0 )
   ]
+
+-- Radar URL generation
+lastImageTime :: POSIXTime -> POSIXTime
+lastImageTime time =  let mins = toInteger $ floor $ time / 60.0 in
+                          fromIntegral $ 60 * (mins - (mins `mod` 15))
+
+radarImgTimes :: POSIXTime -> [UTCTime]
+radarImgTimes time = let interval = 15 * 60 -- minutes
+                         t0 = lastImageTime time - 13 * interval in
+                         posixSecondsToUTCTime . (\i -> t0 + i * interval) <$> [1,2..25]
+
+radarImgUrls :: POSIXTime -> [String]
+radarImgUrls time = let t = lastImageTime time
+                        format = "https://data-4c21db65c81f6.s3.amazonaws.com/eltiempo/maps/%Y/%m/%d/weather/radar/spain/680x537/spain-weather-radar-%Y%m%d%H%M.jpg" in
+                        formatTime defaultTimeLocale format <$> radarImgTimes time
