@@ -102,5 +102,5 @@ radarImgTimes time = let interval = 15 * 60 -- minutes
 
 radarImgUrls :: POSIXTime -> [String]
 radarImgUrls time = let t = lastImageTime time
-                        format = "https://data-4c21db65c81f6.s3.amazonaws.com/eltiempo/maps/%Y/%m/%d/weather/radar/spain/680x537/spain-weather-radar-%Y%m%d%H%M.jpg" in
+                        format = "http://data-4c21db65c81f6.s3.amazonaws.com/eltiempo/maps/%Y/%m/%d/weather/radar/spain/680x537/spain-weather-radar-%Y%m%d%H%M.jpg" in
                         formatTime defaultTimeLocale format <$> radarImgTimes time

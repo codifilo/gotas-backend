@@ -21,6 +21,11 @@ library
                      , JuicyPixels
                      , containers
                      , time
+                     , bytestring
+                     , HTTP
+                     , network-uri
+                     , filepath
+                     , directory
   default-language:    Haskell2010
 
 executable gotas
@@ -31,6 +36,11 @@ executable gotas
                      , gotas-backend
                      , JuicyPixels
                      , time
+                     , bytestring
+                     , HTTP
+                     , network-uri
+                     , filepath
+                     , directory
   default-language:    Haskell2010
 
 test-suite gotas-test
@@ -49,4 +59,4 @@ test-suite gotas-test
 
 source-repository head
   type:     git
-  ImgLocation: https://bitbucket.org/codifilo/gotas-backend
+  location: https://bitbucket.org/codifilo/gotas-backend
