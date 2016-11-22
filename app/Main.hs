@@ -5,12 +5,14 @@ import ElTiempoEs
 import Codec.Picture
 import qualified Data.ByteString as B
 import Network.HTTP
-import Network.URI (parseURI, uriPath)
+import Network.URI (parseURI, uriPath, URI)
 import Data.Time.Clock.POSIX
 import Data.Maybe
 import System.FilePath
 import System.Directory
 import Control.Monad
+import Control.Exception.Enclosed
+import GHC.Exception
 
 main :: IO ()
 main = do
@@ -36,9 +38,15 @@ getCachedImg url =
     Just uri ->do
       let cachedFilePath = "cache" </> takeFileName url
       fileExists <- doesFileExist cachedFilePath
-      unless fileExists (
-          do result <- simpleHTTP (defaultGETRequest_ uri) --TODO: catch errors, timeouts..
-             bytes <- getResponseBody result
-             B.writeFile cachedFilePath bytes)
-      file <- B.readFile cachedFilePath
-      return (Right file)
+      if fileExists
+        then Right <$> B.readFile cachedFilePath
+        else (do
+          result <- tryGetBytes uri
+          case result of
+            Left e -> return $ Left $ "Error downloading: " ++ uriPath uri
+            Right bytes -> do
+              _ <- B.writeFile cachedFilePath bytes
+              return $ Right bytes)
+
+tryGetBytes :: URI -> IO (Either SomeException B.ByteString)
+tryGetBytes uri = tryAny $ simpleHTTP (defaultGETRequest_ uri) >>= getResponseBody
