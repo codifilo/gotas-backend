@@ -13,6 +13,8 @@ import System.Directory
 import Control.Monad
 import Control.Exception.Enclosed
 import GHC.Exception
+import Data.Bifunctor
+import Data.Either
 
 main :: IO ()
 main = do
@@ -30,23 +32,22 @@ main = do
         Left errorMsg -> putStrLn errorMsg
         Right img -> print $ amountAt elTiempoEs img pontevedra
 
-
 getCachedImg :: String -> IO (Either String B.ByteString)
-getCachedImg url =
-  case parseURI url of
-    Nothing -> return (Left ("Invalid URI: " ++ url))
-    Just uri ->do
-      let cachedFilePath = "cache" </> takeFileName url
-      fileExists <- doesFileExist cachedFilePath
-      if fileExists
-        then Right <$> B.readFile cachedFilePath
-        else (do
-          result <- tryGetBytes uri
-          case result of
-            Left e -> return $ Left $ "Error downloading: " ++ uriPath uri
-            Right bytes -> do
-              _ <- B.writeFile cachedFilePath bytes
-              return $ Right bytes)
+getCachedImg url = do
+  let cachedFilePath = "cache" </> takeFileName url
+  fileExists <- doesFileExist cachedFilePath
+  if fileExists
+    then Right <$> B.readFile cachedFilePath
+    else do result <- tryGetBytes url
+            case result of
+              Left e -> return $ Left $ e ++ " url=" ++ url
+              Right bytes -> do
+                _ <- B.writeFile cachedFilePath bytes
+                return $ Right bytes
 
-tryGetBytes :: URI -> IO (Either SomeException B.ByteString)
-tryGetBytes uri = tryAny $ simpleHTTP (defaultGETRequest_ uri) >>= getResponseBody
+tryGetBytes :: String -> IO (Either String B.ByteString)
+tryGetBytes url = case parseURI url of
+                      Nothing -> return (Left $ "Invalid URL: " ++ url)
+                      Just uri -> do
+                        result <- tryAny $ simpleHTTP (defaultGETRequest_ uri) >>= getResponseBody
+                        return $ first (\e -> show e ++ " url: " ++ url) result
