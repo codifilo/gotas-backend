@@ -5,7 +5,6 @@ module Provider (GpsCoord (..)
                  , precipitationAt) where
 
 import Codec.Picture
-import Data.Map as M
 import Data.Time.Clock
 import Data.Time.Clock.POSIX
 import qualified Data.ByteString as B
@@ -16,7 +15,6 @@ import Network.URI (parseURI, uriPath, URI)
 import Control.Exception.Enclosed
 import GHC.Exception
 import qualified Data.Bifunctor as BF
-import Data.Traversable
 import Control.Concurrent.ParallelIO
 import qualified Control.Arrow as A
 

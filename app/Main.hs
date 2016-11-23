@@ -2,10 +2,6 @@ module Main where
 
 import Provider
 import ElTiempoEs
-import Codec.Picture
-import Data.Time.Clock.POSIX
-import Data.Maybe
-import Control.Monad
 
 main :: IO ()
 main = do

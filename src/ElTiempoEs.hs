@@ -2,7 +2,6 @@ module ElTiempoEs (elTiempoEs) where
 
 import Provider
 import Codec.Picture
-import Data.Map as M
 import Data.List as L
 import Control.Arrow as A
 import Data.Time.Clock
