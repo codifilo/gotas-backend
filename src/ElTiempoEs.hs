@@ -12,7 +12,7 @@ import Data.Time.Clock.POSIX
 elTiempoEs :: Provider
 elTiempoEs = Provider {
       imgBounds = radarBounds
-    , pixelToAmount = pixelToMmh
+    , pixelToPrecipitation = pixelToMmh
     , imgUrls = radarImgUrls
   }
 
@@ -95,12 +95,13 @@ lastImageTime :: POSIXTime -> POSIXTime
 lastImageTime time =  let mins = toInteger $ floor $ time / 60.0 in
                           fromIntegral $ 60 * (mins - (mins `mod` 15))
 
-radarImgTimes :: POSIXTime -> [UTCTime]
-radarImgTimes time = let interval = 15 * 60 -- minutes
-                         t0 = lastImageTime time - 13 * interval in
+radarImgTimes :: UTCTime -> [UTCTime]
+radarImgTimes time = let t = utcTimeToPOSIXSeconds time
+                         interval = 15 * 60 -- minutes
+                         t0 = lastImageTime t - 13 * interval in
                          posixSecondsToUTCTime . (\i -> t0 + i * interval) <$> [1,2..25]
 
-radarImgUrls :: POSIXTime -> [String]
-radarImgUrls time = let t = lastImageTime time
-                        format = "http://data-4c21db65c81f6.s3.amazonaws.com/eltiempo/maps/%Y/%m/%d/weather/radar/spain/680x537/spain-weather-radar-%Y%m%d%H%M.jpg" in
-                        formatTime defaultTimeLocale format <$> radarImgTimes time
+radarImgUrls :: UTCTime -> [(UTCTime, String)]
+radarImgUrls time = let format = "http://data-4c21db65c81f6.s3.amazonaws.com/eltiempo/maps/\
+                                  \%Y/%m/%d/weather/radar/spain/680x537/spain-weather-radar-%Y%m%d%H%M.jpg" in
+                     (\t -> (t, formatTime defaultTimeLocale format t)) <$> radarImgTimes time

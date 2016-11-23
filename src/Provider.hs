@@ -6,6 +6,7 @@ module Provider (GpsCoord (..)
 
 import Codec.Picture
 import Data.Map as M
+import Data.Time.Clock
 import Data.Time.Clock.POSIX
 import qualified Data.ByteString as B
 import System.FilePath
@@ -14,10 +15,10 @@ import Network.HTTP
 import Network.URI (parseURI, uriPath, URI)
 import Control.Exception.Enclosed
 import GHC.Exception
-import Data.Bifunctor
-import Data.Either
+import qualified Data.Bifunctor as BF
 import Data.Traversable
 import Control.Concurrent.ParallelIO
+import qualified Control.Arrow as A
 
 data GpsCoord = GpsCoord {
     latitude  :: Double
@@ -40,8 +41,8 @@ data ImgCoord = ImgCoord {
 
 data Provider = Provider {
     imgBounds     :: ImgBounds
-  , pixelToAmount :: PixelRGB8 -> Float
-  , imgUrls       :: POSIXTime -> [String]
+  , pixelToPrecipitation :: PixelRGB8 -> Float
+  , imgUrls       :: UTCTime -> [(UTCTime, String)]
 }
 
 toRadians :: Double -> Double
@@ -62,14 +63,16 @@ locateIn img coord =
       y = (yMax - latitudeToY lat) * yFactor in
       ImgCoord (round x) (round y)
 
-precipitationAt :: Provider -> GpsCoord -> IO [Float]
+precipitationAt :: Provider -> GpsCoord -> IO [(UTCTime, Float)]
 precipitationAt prov coords = do
-  time <- getPOSIXTime
+  time <- getCurrentTime
   let urls = imgUrls prov time
-  downloads <- parallel $ getCachedImg <$> urls
-  let imgs = downloads >>= either (const []) (: [])
+  responses <- parallel $ (\(t, img) -> (,) t <$> getCachedImg img) <$> urls
+  let imgs = responses >>= (\(t, r) -> case r of
+                                        Left e -> []
+                                        Right img -> [(t, img)])
   let (ImgCoord x y) = locateIn (imgBounds prov) coords
-  return $ (\img -> pixelToAmount prov (pixelAt (convertRGB8 img) x y)) <$> imgs
+  return $ A.second (\img -> pixelToPrecipitation prov (pixelAt (convertRGB8 img) x y)) <$> imgs
 
 getCachedImg :: String -> IO (Either String DynamicImage)
 getCachedImg url = do
@@ -102,4 +105,4 @@ tryGetBytes url = case parseURI url of
                       Nothing -> return (Left $ "Invalid URL: " ++ url)
                       Just uri -> do
                         result <- tryAny $ simpleHTTP (defaultGETRequest_ uri) >>= getResponseBody
-                        return $ first (\e -> show e ++ " url: " ++ url) result
+                        return $ BF.first (\e -> show e ++ " url: " ++ url) result
