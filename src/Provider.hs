@@ -2,11 +2,22 @@ module Provider (GpsCoord (..)
                  , ImgBounds (..)
                  , Provider (..)
                  , toRadians
-                 , amountAt) where
+                 , precipitationAt) where
 
 import Codec.Picture
 import Data.Map as M
 import Data.Time.Clock.POSIX
+import qualified Data.ByteString as B
+import System.FilePath
+import System.Directory
+import Network.HTTP
+import Network.URI (parseURI, uriPath, URI)
+import Control.Exception.Enclosed
+import GHC.Exception
+import Data.Bifunctor
+import Data.Either
+import Data.Traversable
+import Control.Concurrent.ParallelIO
 
 data GpsCoord = GpsCoord {
     latitude  :: Double
@@ -51,8 +62,44 @@ locateIn img coord =
       y = (yMax - latitudeToY lat) * yFactor in
       ImgCoord (round x) (round y)
 
-amountAt :: Provider -> DynamicImage -> GpsCoord -> Float
-amountAt prov img gpsCoord =
-  let (ImgCoord x y) = locateIn (imgBounds prov) gpsCoord
-      pixel = pixelAt (convertRGB8 img) x y in
-      pixelToAmount prov pixel
+precipitationAt :: Provider -> GpsCoord -> IO [Float]
+precipitationAt prov coords = do
+  time <- getPOSIXTime
+  let urls = imgUrls prov time
+  downloads <- parallel $ getCachedImg <$> urls
+  let imgs = downloads >>= either (const []) (: [])
+  let (ImgCoord x y) = locateIn (imgBounds prov) coords
+  return $ (\img -> pixelToAmount prov (pixelAt (convertRGB8 img) x y)) <$> imgs
+
+getCachedImg :: String -> IO (Either String DynamicImage)
+getCachedImg url = do
+  bytes <- getCachedBytes url
+  return $ bytes >>= decodeImage
+
+getCachedBytes :: String -> IO (Either String B.ByteString)
+getCachedBytes url = do
+  let cachedFilePath = "cache" </> takeFileName url
+  fileExists <- doesFileExist cachedFilePath
+  if fileExists
+    then do
+      _ <- putStrLn $ "Read from cache " ++ cachedFilePath
+      Right <$> B.readFile cachedFilePath
+    else do
+            _ <- putStrLn $ "Downloading " ++ url
+            result <- tryGetBytes url
+            case result of
+              Left e -> do
+                let errorMsg = e ++ " url=" ++ url
+                _ <- putStrLn e
+                return $ Left errorMsg
+              Right bytes -> do
+                _ <- putStrLn $ "Img downloaded to: " ++ cachedFilePath
+                _ <- B.writeFile cachedFilePath bytes
+                return $ Right bytes
+
+tryGetBytes :: String -> IO (Either String B.ByteString)
+tryGetBytes url = case parseURI url of
+                      Nothing -> return (Left $ "Invalid URL: " ++ url)
+                      Just uri -> do
+                        result <- tryAny $ simpleHTTP (defaultGETRequest_ uri) >>= getResponseBody
+                        return $ first (\e -> show e ++ " url: " ++ url) result
