@@ -11,7 +11,7 @@ import Data.Time.Clock.POSIX
 elTiempoEs :: Provider
 elTiempoEs = Provider {
       imgBounds = radarBounds
-    , pixelToPrecipitation = pixelToMmh
+    , pixelToprecip = pixelToMmh
     , imgUrls = radarImgUrls
   }
 

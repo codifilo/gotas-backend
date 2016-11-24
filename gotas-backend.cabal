@@ -30,6 +30,7 @@ library
                      , stm
                      , enclosed-exceptions
                      , parallel-io
+                     , aeson
   default-language:    Haskell2010
 
 executable gotas
@@ -38,6 +39,10 @@ executable gotas
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base
                      , gotas-backend
+                     , scotty
+                     , aeson
+                     , text
+                     , mtl
   default-language:    Haskell2010
 
 test-suite gotas-test

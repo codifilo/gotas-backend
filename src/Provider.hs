@@ -2,7 +2,7 @@ module Provider (GpsCoord (..)
                  , ImgBounds (..)
                  , Provider (..)
                  , toRadians
-                 , precipitationAt) where
+                 , precipAt) where
 
 import Codec.Picture
 import Data.Time.Clock
@@ -39,7 +39,7 @@ data ImgCoord = ImgCoord {
 
 data Provider = Provider {
     imgBounds     :: ImgBounds
-  , pixelToPrecipitation :: PixelRGB8 -> Float
+  , pixelToprecip :: PixelRGB8 -> Float
   , imgUrls       :: UTCTime -> [(UTCTime, String)]
 }
 
@@ -61,8 +61,8 @@ locateIn img coord =
       y = (yMax - latitudeToY lat) * yFactor in
       ImgCoord (round x) (round y)
 
-precipitationAt :: Provider -> GpsCoord -> IO [(UTCTime, Float)]
-precipitationAt prov coords = do
+precipAt :: Provider -> GpsCoord -> IO [(UTCTime, Float)]
+precipAt prov coords = do
   time <- getCurrentTime
   let urls = imgUrls prov time
   responses <- parallel $ (\(t, img) -> (,) t <$> getCachedImg img) <$> urls
@@ -70,7 +70,7 @@ precipitationAt prov coords = do
                                         Left e -> []
                                         Right img -> [(t, img)])
   let (ImgCoord x y) = locateIn (imgBounds prov) coords
-  return $ A.second (\img -> pixelToPrecipitation prov (pixelAt (convertRGB8 img) x y)) <$> imgs
+  return $ A.second (\img -> pixelToprecip prov (pixelAt (convertRGB8 img) x y)) <$> imgs
 
 getCachedImg :: String -> IO (Either String DynamicImage)
 getCachedImg url = do
