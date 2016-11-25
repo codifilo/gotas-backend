@@ -1,10 +1,13 @@
+{-# LANGUAGE DeriveGeneric #-}
 module Provider (GpsCoord (..)
                  , ImgBounds (..)
                  , Provider (..)
+                 , Precip (..)
                  , toRadians
                  , precipAt) where
 
 import Codec.Picture
+import Data.Maybe
 import Data.Time.Clock
 import Data.Time.Clock.POSIX
 import qualified Data.ByteString as B
@@ -17,6 +20,8 @@ import GHC.Exception
 import qualified Data.Bifunctor as BF
 import Control.Concurrent.ParallelIO
 import qualified Control.Arrow as A
+import GHC.Generics
+import Data.Aeson (FromJSON, ToJSON)
 
 data GpsCoord = GpsCoord {
     latitude  :: Double
@@ -39,9 +44,17 @@ data ImgCoord = ImgCoord {
 
 data Provider = Provider {
     imgBounds     :: ImgBounds
-  , pixelToprecip :: PixelRGB8 -> Float
+  , pixelToprecip :: PixelRGB8 -> Precip
   , imgUrls       :: UTCTime -> [(UTCTime, String)]
 }
+
+data Precip = Rain Float
+            | Snow Float
+            | Mixed Float
+    deriving (Show, Generic)
+
+instance ToJSON Precip
+instance FromJSON Precip
 
 toRadians :: Double -> Double
 toRadians d = d * (pi / 180)
@@ -61,21 +74,36 @@ locateIn img coord =
       y = (yMax - latitudeToY lat) * yFactor in
       ImgCoord (round x) (round y)
 
-precipAt :: Provider -> GpsCoord -> IO [(UTCTime, Float)]
-precipAt prov coords = do
-  time <- getCurrentTime
-  let urls = imgUrls prov time
-  responses <- parallel $ (\(t, img) -> (,) t <$> getCachedImg img) <$> urls
-  let imgs = responses >>= (\(t, r) -> case r of
-                                        Left e -> []
-                                        Right img -> [(t, img)])
-  let (ImgCoord x y) = locateIn (imgBounds prov) coords
-  return $ A.second (\img -> pixelToprecip prov (pixelAt (convertRGB8 img) x y)) <$> imgs
+precipAt :: Provider -> GpsCoord -> IO [(UTCTime, Maybe Precip)]
+precipAt prov coords =
+  let imgCoords = locateIn (imgBounds prov) coords in
+      if inBounds prov imgCoords
+        then do
+          time <- getCurrentTime
+          let urls = imgUrls prov time
+          parallel $ (\u -> urlToPrecip u prov imgCoords) <$> urls
+        else return []
 
-getCachedImg :: String -> IO (Either String DynamicImage)
+inBounds :: Provider -> ImgCoord -> Bool
+inBounds p (ImgCoord x y) =
+  let bounds = imgBounds p
+      w = width bounds
+      h = height bounds in
+      x >= 0 && x < w && y >= 0 && y < h
+
+urlToPrecip :: (UTCTime, String) -> Provider -> ImgCoord -> IO (UTCTime, Maybe Precip)
+urlToPrecip (time, url) prov (ImgCoord x y) = do
+  img <- getCachedImg url
+  let precip = (\img -> pixelToprecip prov (pixelAt (convertRGB8 img) x y)) <$> img
+  return (time, precip)
+
+getCachedImg :: String -> IO (Maybe DynamicImage)
 getCachedImg url = do
   bytes <- getCachedBytes url
-  return $ bytes >>= decodeImage
+  let result = bytes >>= decodeImage
+  case result of
+    Left _    -> return Nothing
+    Right img -> return $ Just img
 
 getCachedBytes :: String -> IO (Either String B.ByteString)
 getCachedBytes url = do
