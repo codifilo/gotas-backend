@@ -16,7 +16,6 @@ import System.Directory
 import Network.HTTP
 import Network.URI (parseURI, uriPath, URI)
 import Control.Exception.Enclosed
-import GHC.Exception
 import qualified Data.Bifunctor as BF
 import Control.Concurrent.ParallelIO
 import qualified Control.Arrow as A
@@ -110,24 +109,19 @@ getCachedBytes url = do
   let cachedFilePath = "cache" </> takeFileName url
   fileExists <- doesFileExist cachedFilePath
   if fileExists
-    then do
-      _ <- putStrLn $ "Read from cache " ++ cachedFilePath
-      Right <$> B.readFile cachedFilePath
-    else do
-            _ <- putStrLn $ "Downloading " ++ url
-            result <- tryGetBytes url
+    then Right <$> B.readFile cachedFilePath
+    else do result <- download url
             case result of
               Left e -> do
                 let errorMsg = e ++ " url=" ++ url
-                _ <- putStrLn e
+                _ <- putStrLn errorMsg
                 return $ Left errorMsg
               Right bytes -> do
-                _ <- putStrLn $ "Img downloaded to: " ++ cachedFilePath
                 _ <- B.writeFile cachedFilePath bytes
                 return $ Right bytes
 
-tryGetBytes :: String -> IO (Either String B.ByteString)
-tryGetBytes url = case parseURI url of
+download :: String -> IO (Either String B.ByteString)
+download url = case parseURI url of
                       Nothing -> return (Left $ "Invalid URL: " ++ url)
                       Just uri -> do
                         result <- tryAny $ simpleHTTP (defaultGETRequest_ uri) >>= getResponseBody
