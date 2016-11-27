@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveGeneric #-}
-module Provider (GpsCoord (..)
+module Provider (ImgCacheState
+                 , GpsCoord (..)
                  , ImgBounds (..)
                  , Provider (..)
                  , Precip (..)
@@ -21,6 +22,9 @@ import Control.Concurrent.ParallelIO
 import qualified Control.Arrow as A
 import GHC.Generics
 import Data.Aeson (FromJSON, ToJSON)
+import Cache
+
+type ImgCacheState = CacheState String DynamicImage
 
 data GpsCoord = GpsCoord {
     latitude  :: Double
@@ -73,14 +77,14 @@ locateIn img coord =
       y = (yMax - latitudeToY lat) * yFactor in
       ImgCoord (round x) (round y)
 
-precipAt :: Provider -> GpsCoord -> IO [(UTCTime, Maybe Precip)]
-precipAt prov coords =
+precipAt :: ImgCacheState ->  Provider -> GpsCoord -> IO [(UTCTime, Maybe Precip)]
+precipAt cacheState prov coords =
   let imgCoords = locateIn (imgBounds prov) coords in
       if inBounds prov imgCoords
         then do
           time <- getCurrentTime
           let urls = imgUrls prov time
-          parallel $ (\u -> urlToPrecip u prov imgCoords) <$> urls
+          parallel $ (\u -> urlToPrecip cacheState u prov imgCoords) <$> urls
         else return []
 
 inBounds :: Provider -> ImgCoord -> Bool
@@ -90,39 +94,26 @@ inBounds p (ImgCoord x y) =
       h = height bounds in
       x >= 0 && x < w && y >= 0 && y < h
 
-urlToPrecip :: (UTCTime, String) -> Provider -> ImgCoord -> IO (UTCTime, Maybe Precip)
-urlToPrecip (time, url) prov (ImgCoord x y) = do
-  img <- getCachedImg url
+urlToPrecip :: ImgCacheState -> (UTCTime, String) -> Provider -> ImgCoord -> IO (UTCTime, Maybe Precip)
+urlToPrecip cacheState (time, url) prov (ImgCoord x y) = do
+  img <- readValue cacheState url downloadImg
   let precip = (\img -> pixelToprecip prov (pixelAt (convertRGB8 img) x y)) <$> img
   return (time, precip)
 
-getCachedImg :: String -> IO (Maybe DynamicImage)
-getCachedImg url = do
-  bytes <- getCachedBytes url
-  let result = bytes >>= decodeImage
-  case result of
-    Left _    -> return Nothing
-    Right img -> return $ Just img
-
-getCachedBytes :: String -> IO (Either String B.ByteString)
-getCachedBytes url = do
-  let cachedFilePath = "cache" </> takeFileName url
-  fileExists <- doesFileExist cachedFilePath
-  if fileExists
-    then Right <$> B.readFile cachedFilePath
-    else do result <- download url
-            case result of
-              Left e -> do
-                let errorMsg = e ++ " url=" ++ url
-                _ <- putStrLn errorMsg
-                return $ Left errorMsg
-              Right bytes -> do
-                _ <- B.writeFile cachedFilePath bytes
-                return $ Right bytes
-
-download :: String -> IO (Either String B.ByteString)
-download url = case parseURI url of
-                      Nothing -> return (Left $ "Invalid URL: " ++ url)
+downloadImg :: String -> IO (Maybe DynamicImage)
+downloadImg url = case parseURI url of
+                      Nothing -> do
+                        putStrLn $ "Invalid URL: " ++ url
+                        return Nothing
                       Just uri -> do
-                        result <- tryAny $ simpleHTTP (defaultGETRequest_ uri) >>= getResponseBody
-                        return $ BF.first (\e -> show e ++ " url: " ++ url) result
+                        response <- tryAny $ simpleHTTP (defaultGETRequest_ uri) >>= getResponseBody
+                        case response of
+                          Left e -> do
+                            putStrLn $ show e ++ " url: " ++ url
+                            return Nothing
+                          Right bytes ->
+                            case decodeImage bytes of
+                              Left e -> do
+                                putStrLn $ show e ++ " url: " ++ url
+                                return Nothing
+                              Right img -> return $ Just img
