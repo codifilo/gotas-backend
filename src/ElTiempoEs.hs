@@ -7,12 +7,15 @@ import Control.Arrow as A
 import Data.Time.Clock
 import Data.Time.Format
 import Data.Time.Clock.POSIX
+import Control.Concurrent
+import Cache
 
 elTiempoEs :: Provider
 elTiempoEs = Provider {
       imgBounds = radarBounds
     , pixelToprecip = pixelToMmh
     , imgUrls = radarImgUrls
+    , cacheInvalidationLoop = invalidateCacheAfterNextLoop
   }
 
 radarBounds :: ImgBounds
@@ -90,17 +93,50 @@ mixedLegend = [
   ]
 
 -- Radar URL generation
-lastImageTime :: POSIXTime -> POSIXTime
-lastImageTime time =  let mins = toInteger $ floor $ time / 60.0 in
-                          fromIntegral $ 60 * (mins - (mins `mod` 15))
+intervalMins = 15
+intervalSecs = intervalMins * secsPerMin
+secsPerMin = 60
+pastImgsCount = 3
+futureImgsCount = 4
+
+lastImagePOSIXTime :: POSIXTime -> POSIXTime
+lastImagePOSIXTime time =  let mins = toInteger $ floor $ time / fromInteger secsPerMin in
+                          fromIntegral $ secsPerMin * (mins - (mins `mod` intervalMins))
+
+nextImagePOSIXTime :: POSIXTime -> POSIXTime
+nextImagePOSIXTime time =  let mins = toInteger $ floor $ time / fromInteger secsPerMin in
+                          fromIntegral $ secsPerMin * (mins + (intervalMins - (mins `mod` intervalMins)))
+
+lastImageUTCTime :: UTCTime -> UTCTime
+lastImageUTCTime = posixSecondsToUTCTime . lastImagePOSIXTime . utcTimeToPOSIXSeconds
+
+nextImageUTCTime :: UTCTime -> UTCTime
+nextImageUTCTime = posixSecondsToUTCTime . nextImagePOSIXTime . utcTimeToPOSIXSeconds
 
 radarImgTimes :: UTCTime -> [UTCTime]
-radarImgTimes time = let t = utcTimeToPOSIXSeconds time
-                         interval = 15 * 60 -- minutes
-                         t0 = lastImageTime t - 13 * interval in
-                         posixSecondsToUTCTime . (\i -> t0 + i * interval) <$> [1,2..25]
+radarImgTimes time = pastImgsTimes time ++ futureImgsTimes time
+
+pastImgsTimes :: UTCTime -> [UTCTime]
+pastImgsTimes time = let t = utcTimeToPOSIXSeconds time
+                         t0 = lastImagePOSIXTime t - pastImgsCount * fromInteger intervalSecs in
+                         posixSecondsToUTCTime . (\i -> t0 + i * fromInteger intervalSecs) <$> [1,2..pastImgsCount]
+
+futureImgsTimes :: UTCTime -> [UTCTime]
+futureImgsTimes time = let t0 = lastImagePOSIXTime $ utcTimeToPOSIXSeconds time in
+                           posixSecondsToUTCTime . (\i -> t0 + i * fromInteger intervalSecs) <$> [1,2..futureImgsCount]
 
 radarImgUrls :: UTCTime -> [(UTCTime, String)]
 radarImgUrls time = let format = "http://data-4c21db65c81f6.s3.amazonaws.com/eltiempo/maps/\
                                   \%Y/%m/%d/weather/radar/spain/680x537/spain-weather-radar-%Y%m%d%H%M.jpg" in
                      (\t -> (t, formatTime defaultTimeLocale format t)) <$> radarImgTimes time
+
+-- Cache invalidation task
+invalidateCacheAfterNextLoop :: ImgCacheState -> IO ()
+invalidateCacheAfterNextLoop cacheState = do
+  now <- getCurrentTime
+  let next = nextImageUTCTime now
+  let timeToNext = next `diffUTCTime` now
+  threadDelay (10^6 * fromEnum timeToNext)
+  putStrLn "Invalidating cache"
+  invalidateAll cacheState
+  invalidateCacheAfterNextLoop cacheState

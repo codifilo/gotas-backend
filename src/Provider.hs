@@ -46,9 +46,10 @@ data ImgCoord = ImgCoord {
 } deriving (Eq, Ord, Show, Read)
 
 data Provider = Provider {
-    imgBounds     :: ImgBounds
-  , pixelToprecip :: PixelRGB8 -> Precip
-  , imgUrls       :: UTCTime -> [(UTCTime, String)]
+    imgBounds             :: ImgBounds
+  , pixelToprecip         :: PixelRGB8 -> Precip
+  , imgUrls               :: UTCTime -> [(UTCTime, String)]
+  , cacheInvalidationLoop :: ImgCacheState -> IO ()
 }
 
 data Precip = Rain Float

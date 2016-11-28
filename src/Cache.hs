@@ -1,7 +1,9 @@
 module Cache (CacheState
               , RetrieveFun
               , newEmptyCacheState
-              , cleanOldValues
+              , invalidateExpiredValues
+              , invalidateValues
+              , invalidateAll
               , readValue) where
 
 import Control.Concurrent
@@ -19,8 +21,16 @@ type RetrieveFun k a = k -> IO (Maybe a)
 newEmptyCacheState :: IO (CacheState k a)
 newEmptyCacheState = newMVar Map.empty
 
-cleanOldValues :: Ord k => NominalDiffTime -> CacheState k a -> IO ()
-cleanOldValues expiry cacheState = do
+invalidateAll :: Ord k => CacheState k a -> IO ()
+invalidateAll cacheState = do
+  cache <- takeMVar cacheState
+  putMVar cacheState Map.empty
+
+invalidateExpiredValues :: Ord k => NominalDiffTime -> CacheState k a -> IO ()
+invalidateExpiredValues expirySeconds = invalidateValues (\t now -> now `diffUTCTime` t <= expirySeconds)
+
+invalidateValues :: Ord k => (UTCTime -> UTCTime -> Bool) -> CacheState k a -> IO ()
+invalidateValues isValid cacheState = do
   cache <- takeMVar cacheState
   now <- getCurrentTime
   filteredCache <- filterValues (\cvs -> do
@@ -28,10 +38,9 @@ cleanOldValues expiry cacheState = do
     case result of
       Nothing -> return True
       Just (CachedValue t _) -> do
-        let age = now `diffUTCTime` t
-        let isValid = age <= expiry
-        unless isValid $ putStrLn $ "Removing expired value: age=" ++ show age
-        return isValid
+        let valid = isValid t now
+        unless valid $ putStrLn $ "Removing expired value: age=" ++ show (now `diffUTCTime` t)
+        return valid
     ) cache
   putMVar cacheState filteredCache
 
