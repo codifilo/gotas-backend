@@ -46,9 +46,9 @@ invalidateValues isValid cacheState = do
 
 filterValues ::(Ord k, Monad m) => (a -> m Bool) -> Map.Map k a -> m (Map.Map k a)
 filterValues pM = Map.foldrWithKey (\k a acc ->
-  pM a >>= (\p -> if p
-                    then Map.insert k a <$> acc
-                    else acc)) (return Map.empty)
+                                      pM a >>= (\p -> if p
+                                                        then Map.insert k a <$> acc
+                                                        else acc)) (return Map.empty)
 
 readValue :: Ord k => CacheState k a -> k -> RetrieveFun k a -> IO (Maybe a)
 readValue cacheState key retrieve = do

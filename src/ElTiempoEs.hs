@@ -96,8 +96,8 @@ mixedLegend = [
 intervalMins = 15
 intervalSecs = intervalMins * secsPerMin
 secsPerMin = 60
-pastImgsCount = 3
-futureImgsCount = 4
+pastImgsCount = 11
+futureImgsCount = 12
 
 lastImagePOSIXTime :: POSIXTime -> POSIXTime
 lastImagePOSIXTime time =  let mins = toInteger $ floor $ time / fromInteger secsPerMin in
@@ -135,8 +135,10 @@ invalidateCacheAfterNextLoop :: ImgCacheState -> IO ()
 invalidateCacheAfterNextLoop cacheState = do
   now <- getCurrentTime
   let next = nextImageUTCTime now
-  let timeToNext = next `diffUTCTime` now
-  threadDelay (10^6 * fromEnum timeToNext)
+  let timeToNext = fromEnum . round $ next `diffUTCTime` now
+  let delay = if timeToNext > 0 then timeToNext else fromEnum intervalSecs
+  putStrLn $ "Invalidating cache in " ++ show (delay `div` 60) ++ " minutes " ++ show (delay `mod` 60) ++ " seconds"
+  threadDelay (10^6 * delay)
   putStrLn "Invalidating cache"
   invalidateAll cacheState
   invalidateCacheAfterNextLoop cacheState
