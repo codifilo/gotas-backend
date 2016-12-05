@@ -32,7 +32,7 @@ radarBounds = ImgBounds {
 pixelToMmh :: PixelRGB8 -> Precip
 pixelToMmh p@(PixelRGB8 r g b) =
     if r == g && g == b
-      then Rain 0.0
+      then None
       else  let distances = A.first (distance p) <$> combinedLegend
                 minDistance (d1, _) (d2, _) = compare d1 d2 in
                 snd $ L.minimumBy minDistance distances
@@ -125,10 +125,10 @@ futureImgsTimes :: UTCTime -> [UTCTime]
 futureImgsTimes time = let t0 = lastImagePOSIXTime $ utcTimeToPOSIXSeconds time in
                            posixSecondsToUTCTime . (\i -> t0 + i * fromInteger intervalSecs) <$> [1,2..futureImgsCount]
 
-radarImgUrls :: UTCTime -> [(UTCTime, String)]
+radarImgUrls :: UTCTime -> [Observation Url]
 radarImgUrls time = let format = "http://data-4c21db65c81f6.s3.amazonaws.com/eltiempo/maps/\
                                   \%Y/%m/%d/weather/radar/spain/680x537/spain-weather-radar-%Y%m%d%H%M.jpg" in
-                     (\t -> (t, formatTime defaultTimeLocale format t)) <$> radarImgTimes time
+                     (\t -> Observation t (Just $ formatTime defaultTimeLocale format t)) <$> radarImgTimes time
 
 -- Cache invalidation task
 invalidateCacheAfterNextLoop :: ImgCacheState -> IO ()

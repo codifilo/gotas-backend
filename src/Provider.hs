@@ -1,9 +1,12 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Provider (ImgCacheState
                  , GpsCoord (..)
                  , ImgBounds (..)
                  , Provider (..)
+                 , Observation (..)
                  , Precip (..)
+                 , Url
                  , toRadians
                  , precipAt) where
 
@@ -21,7 +24,7 @@ import qualified Data.Bifunctor as BF
 import Control.Concurrent.ParallelIO
 import qualified Control.Arrow as A
 import GHC.Generics
-import Data.Aeson (FromJSON, ToJSON)
+import Data.Aeson (ToJSON)
 import Cache
 
 type ImgCacheState = CacheState String DynamicImage
@@ -45,20 +48,25 @@ data ImgCoord = ImgCoord {
   , y :: Int
 } deriving (Eq, Ord, Show, Read)
 
+type Url = String
+
 data Provider = Provider {
     imgBounds             :: ImgBounds
   , pixelToprecip         :: PixelRGB8 -> Precip
-  , imgUrls               :: UTCTime -> [(UTCTime, String)]
+  , imgUrls               :: UTCTime -> [Observation Url]
   , cacheInvalidationLoop :: ImgCacheState -> IO ()
 }
 
-data Precip = Rain Float
-            | Snow Float
-            | Mixed Float
-    deriving (Show, Generic)
+data Precip = Rain  Double
+            | Snow  Double
+            | Mixed Double
+            | None
+    deriving (Show, Generic, ToJSON)
 
-instance ToJSON Precip
-instance FromJSON Precip
+data Observation a = Observation {
+    time :: UTCTime
+  , value :: Maybe a
+} deriving (Show, Generic, ToJSON)
 
 toRadians :: Double -> Double
 toRadians d = d * (pi / 180)
@@ -78,7 +86,7 @@ locateIn img coord =
       y = (yMax - latitudeToY lat) * yFactor in
       ImgCoord (round x) (round y)
 
-precipAt :: ImgCacheState ->  Provider -> GpsCoord -> IO [(UTCTime, Maybe Precip)]
+precipAt :: ImgCacheState ->  Provider -> GpsCoord -> IO [Observation Precip]
 precipAt cacheState prov coords =
   let imgCoords = locateIn (imgBounds prov) coords in
       if inBounds prov imgCoords
@@ -95,11 +103,14 @@ inBounds p (ImgCoord x y) =
       h = height bounds in
       x >= 0 && x < w && y >= 0 && y < h
 
-urlToPrecip :: ImgCacheState -> (UTCTime, String) -> Provider -> ImgCoord -> IO (UTCTime, Maybe Precip)
-urlToPrecip cacheState (time, url) prov (ImgCoord x y) = do
-  img <- readValue cacheState url downloadImg
-  let precip = (\img -> pixelToprecip prov (pixelAt (convertRGB8 img) x y)) <$> img
-  return (time, precip)
+urlToPrecip :: ImgCacheState -> Observation Url -> Provider -> ImgCoord -> IO (Observation Precip)
+urlToPrecip cacheState (Observation time urlMaybe) prov (ImgCoord x y) =
+  case urlMaybe of
+    Nothing -> return $ Observation time Nothing
+    Just url -> do
+      img <- readValue cacheState url downloadImg
+      let precip = (\img -> pixelToprecip prov (pixelAt (convertRGB8 img) x y)) <$> img
+      return $ Observation time precip
 
 downloadImg :: String -> IO (Maybe DynamicImage)
 downloadImg url = case parseURI url of
