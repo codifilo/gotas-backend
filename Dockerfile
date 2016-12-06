@@ -10,4 +10,4 @@ RUN stack build
 # Instructions
 # docker build -t gotas-build .
 # docker create --name gotas-build-cont gotas-build
-# docker cp gotas-build-cont:/opt/gotas/.stack-work/x86_64-linux/Cabal-1.24.0.0/build/gotas/gotas ./docker-build/
+# docker cp gotas-build-cont:/opt/gotas/.stack-work/dist/x86_64-linux/Cabal-1.24.0.0/build/gotas/gotas ./docker-build/
