@@ -2,6 +2,7 @@ module ElTiempoEs (elTiempoEs) where
 
 import Provider
 import Codec.Picture
+import Codec.Picture.Types
 import Data.List as L
 import Control.Arrow as A
 import Data.Time.Clock
@@ -33,13 +34,41 @@ pixelToMmh :: PixelRGB8 -> Precip
 pixelToMmh p@(PixelRGB8 r g b) =
     if r == g && g == b
       then None
-      else  let distances = A.first (distance p) <$> combinedLegend
+      else  let distances = A.first (hueDistance p) <$> combinedLegend
                 minDistance (d1, _) (d2, _) = compare d1 d2 in
                 snd $ L.minimumBy minDistance distances
 
-distance :: PixelRGB8 -> PixelRGB8 -> Float
-distance (PixelRGB8 r1 g1 b1) (PixelRGB8 r2 g2 b2) =
-    sqrt $ fromIntegral(r2 - r1)^2 + fromIntegral(g2 - g1)^2 + fromIntegral(b2 - b1)^2
+-- yCbCrEuclidieanDistance :: PixelYCbCr8 -> PixelYCbCr8 -> Double
+-- yCbCrEuclidieanDistance (PixelYCbCr8 y1 cb1 cr1) (PixelYCbCr8 y2 cb2 cr2) =
+--       sqrt $ (fromIntegral y2 - fromIntegral y1)^2 + (fromIntegral cb2 - fromIntegral cb1)^2 + (fromIntegral cr2 - fromIntegral cr1)^2
+--
+-- -- deltaE94 CIELAB formula
+-- deltaE94 :: PixelRGB8 -> PixelRGB8 -> Double
+-- deltaE94 (PixelRGB8 r1 g1 bb1) (PixelRGB8 r2 g2 bb2) =
+--     let (CIELAB l1 a1 b1) = fromRGB (RGB (toInteger r1) (toInteger g1) (toInteger bb1))
+--         (CIELAB l2 a2 b2) = fromRGB (RGB (toInteger r2) (toInteger g2) (toInteger bb2))
+--         dl = l1 - l2
+--         c1 = sqrt $ a1^2 + b1^2
+--         c2 = sqrt $ a2^2 + b2^2
+--         dc = c1 - c2
+--         da = a1 - a2
+--         db = b1 - b2
+--         sl = 1
+--         sc = 1 + k1 * c1
+--         sh = 1 + k2 * c1
+--         kl = 1     -- graphic arts = 1; textiles = 2
+--         k1 = 0.045 -- graphic arts = 0.045; textiles = 0.048
+--         k2 = 0.015 -- graphic arts = 0.015; textiles = 0.014
+--         kc = 1
+--         kh = 1
+--         dh = sqrt $ da^2 + db^2 - dc^2 in
+--         sqrt $ (dl / kl*sl)^2 + (dc / kc*sc)^2 + (dh / kh*sh)
+
+hueDistance :: PixelRGB8 -> PixelRGB8 -> Double
+hueDistance p1 p2 = abs $ hue p1 - hue p2
+
+hue :: PixelRGB8 -> Double
+hue (PixelRGB8 r g b) = atan2 (sqrt 3 * (fromIntegral g - fromIntegral b)) (2 * fromIntegral r - fromIntegral g - fromIntegral b)
 
 combinedLegend :: [(PixelRGB8, Precip)]
 combinedLegend = rainLegend ++ snowLegend ++ mixedLegend
